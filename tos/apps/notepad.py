@@ -1,6 +1,6 @@
 # tos notepad — simple text editor
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTextEdit, QPushButton, QFileDialog
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTextEdit, QPushButton, QFileDialog, QHBoxLayout
 from PyQt5.QtCore import Qt
 from theme import Fonts
 
