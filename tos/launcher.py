@@ -1,13 +1,13 @@
 # tos launcher — real start menu panel (replaces broken QMenu version)
 
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QPushButton, QLabel, QFrame, QScrollArea
+    QWidget, QVBoxLayout, QPushButton, QLabel, QFrame, QScrollArea, QGridLayout, QMenu, QAction
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 
 
-class Launcher(QWidget):
+class Launcher(QMenu):
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -36,47 +36,26 @@ class Launcher(QWidget):
             }
         """)
 
-        self._apps = {}
+        self._sections = {}
 
-        self._build_ui()
+    def add_section(self, name):
+        if name not in self._sections:
+            separator = QAction(None)
+            separator.setSeparator(True)
+            label = QAction(name)
+            label.setFont(QFont("monospace", 8, QFont.Bold))
+            label.setEnabled(False)
+            self.addAction(separator)
+            self.addAction(label)
+            self._sections[name] = []
 
-    # ---------------- UI ----------------
-    def _build_ui(self):
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(4, 4, 4, 4)
-        self.layout.setSpacing(2)
-
-        title = QLabel("START")
-        title.setAlignment(Qt.AlignCenter)
-        title.setFont(QFont("monospace", 10, QFont.Bold))
-        self.layout.addWidget(title)
-
-        self.container = QVBoxLayout()
-        self.container.setSpacing(2)
-
-        holder = QWidget()
-        holder.setLayout(self.container)
-
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(holder)
-        scroll.setFrameShape(QFrame.NoFrame)
-
-        self.layout.addWidget(scroll)
-
-    # ---------------- ADD APP ----------------
-    def add_app(self, name, cb):
-        btn = QPushButton(name)
-        btn.clicked.connect(cb)
-
-        self.container.addWidget(btn)
-        self._apps[name] = btn
-
-    # ---------------- REMOVE APP ----------------
-    def remove_app(self, name):
-        if name in self._apps:
-            btn = self._apps.pop(name)
-            btn.setParent(None)
+    def add_action(self, section, name, cb):
+        if section not in self._sections:
+            raise ValueError(f"Section '{section}' does not exist")
+        action = QAction(name)
+        action.triggered.connect(cb)
+        self.addAction(action)
+        self._sections[section].append(action)
 
     # ---------------- POPUP ----------------
     def popup(self, pos):

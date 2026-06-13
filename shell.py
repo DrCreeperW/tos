@@ -221,19 +221,18 @@ class TOSShell(QMainWindow):
 
     # ---------------- START MENU FIX ----------------
     def _register_start_menu(self):
-        self.launcher.add_app("terminal", self.run_terminal)
-        self.launcher.add_app("files", self.run_explorer)
-        self.launcher.add_app("settings", self.run_settings)
-        self.launcher.add_app("calc", self.run_calc)
-        self.launcher.add_app("clock", self.run_clock)
+        self.launcher.add_section("Apps")
+        self.launcher.add_action(section="Apps", name="terminal", cb=self.run_terminal)
+        self.launcher.add_action(section="Apps", name="files", cb=self.run_explorer)
+        self.launcher.add_action(section="Apps", name="settings", cb=self.run_settings)
 
-        # Dynamically add games
         game_folder = os.path.join(os.path.dirname(__file__), "games")
         if os.path.exists(game_folder):
             for filename in os.listdir(game_folder):
                 if filename.endswith(".py"):
                     game_name = filename[:-3]
-                    self.launcher.add_game(game_name, lambda n=game_name: self.run_game(n))
+                    self.launcher.add_section("Games" if not self.launcher._sections.get("Games") else "")
+                    self.launcher.add_action(section="Games", name=game_name, cb=lambda n=game_name: self.run_game(n))
 
     # ---------------- MENU ----------------
     def open_menu(self):
@@ -349,11 +348,4 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
-    shell = TOSShell()
-    shell.show()
-
-    sys.exit(app.exec_())
-
-
-if __name__ == "__main__":
-    main()
+    shell =
