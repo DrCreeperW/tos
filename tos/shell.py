@@ -132,42 +132,4 @@ class TOSShell(QMainWindow):
         self._label = ""
         self._build()
         self._fullscreen()
-        self._show_login()
-
-    def _build(self):
-        central = QWidget()
-        central.setStyleSheet("background: #8B0000;")
-        self.setCentralWidget(central)
-        ml = QVBoxLayout(central)
-        ml.setContentsMargins(0, 0, 0, 0)
-        ml.setSpacing(0)
-
-        self.stack = QStackedWidget()
-        ml.addWidget(self.stack, stretch=1)
-
-        # page 0: login
-        self._login_page = QWidget()
-        self._login_page.setAutoFillBackground(True)
-        lp = self._login_page.palette()
-        lp.setColor(self._login_page.backgroundRole(), QColor(0x8B, 0x00, 0x00))
-        self._login_page.setPalette(lp)
-        self._login_lo = QVBoxLayout(self._login_page)
-        self._login_lo.setContentsMargins(0, 0, 0, 0)
-        self.stack.addWidget(self._login_page)
-
-        # page 1: desktop
-        dp = QWidget()
-        dl = QVBoxLayout(dp)
-        dl.setContentsMargins(0, 0, 0, 0)
-        dl.setSpacing(0)
-
-        self.taskbar = Taskbar(launcher_callback=self._toggle_menu, shutdown_callback=self._show_shutdown_menu)
-        dl.addWidget(self.taskbar)
-
-        self.desk = DesktopBg()
-        dl.addWidget(self.desk, stretch=1)
-
-        self.stack.addWidget(dp)
-        self.launcher = Launcher(self)
-        self._register_apps()
-        QTimer.singleShot(3
+        self._show_login
