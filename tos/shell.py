@@ -39,27 +39,4 @@ class Shortcut(QWidget):
         self.setCursor(cursor.TOS_CURSOR)
 
     def paintEvent(self, e):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing, False)
-        p.fillRect(20, 4, 40, 40, QColor(0x5C, 0x00, 0x00))
-        p.setPen(QColor(0, 0, 0))
-        p.drawRect(20, 4, 40, 40)
-        p.setPen(QColor(0xFF, 0xD7, 0x00))
-        p.setFont(Fonts.body())
-        p.drawText(0, 46, 80, 20, Qt.AlignCenter, self._l)
-
-    def mousePressEvent(self, e):
-        if e.button() == Qt.LeftButton:
-            self.clicked.emit()
-
-
-class AppWindow(QFrame):
-    closed = pyqtSignal(object)
-
-    def __init__(self, title, content, app_id=None):
-        super().__init__()
-        self.app_id = app_id or title
-        self.setWindowFlags(Qt.FramelessWindowHint)
-        self.setFrameShape(QFrame.NoFrame)
-        self._build(title, content)
-        self.resize(Sizes
+        p
