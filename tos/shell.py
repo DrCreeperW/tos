@@ -2,6 +2,7 @@
 
 import sys
 import subprocess
+import os
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -69,11 +70,9 @@ class AppWindow(QFrame):
     def _build(self, title, content):
         lo = QVBoxLayout(self)
         lo.setContentsMargins(2, 2, 2, 2)
-        lo.setSpacing(0)
         tb = QFrame()
         tb.setFixedHeight(20)
         tb.setStyleSheet("background: #FFD700; border-bottom: 1px solid #000;")
-        # Forward mouse events from title bar to parent AppWindow for dragging
         def tb_press(e):
             if e.button() == Qt.LeftButton:
                 self._drag = e.globalPos() - self.frameGeometry().topLeft()
@@ -282,7 +281,6 @@ class TOSShell(QMainWindow):
 
     def _run_terminal(self):
         from apps.terminal import Terminal
-        from PyQt5.QtWidgets import QLabel
         term = Terminal()
         def on_egg(cmd):
             if cmd == "y&a":
@@ -315,9 +313,11 @@ class TOSShell(QMainWindow):
         self.launch("settings", Settings())
 
     def _run_game(self, name):
-        import os
-        p = os.path.join(os.path.dirname(__file__), "games", name + ".py")
-        subprocess.Popen(["/usr/bin/python3", p], env={**os.environ, "DISPLAY": os.environ.get("DISPLAY", ":99")})
+        game_path = os.path.join(os.path.dirname(__file__), "games", f"{name}.py")
+        if sys.platform == "win32":
+            subprocess.Popen([sys.executable, "-m", "python", game_path], cwd=os.path.dirname(game_path))
+        else:
+            subprocess.Popen(["/usr/bin/python3", game_path], env={**os.environ, "DISPLAY": os.environ.get("DISPLAY", ":99")})
 
     def _run_jumper(self):   self._run_game("jumper")
     def _run_snake(self):    self._run_game("snake")
