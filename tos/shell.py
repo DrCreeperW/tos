@@ -4,7 +4,8 @@ import os
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
-    QLabel, QFrame, QPushButton, QStackedWidget, QGridLayout, QMenu, QHBoxLayout
+    QLabel, QFrame, QPushButton, QStackedWidget,
+    QGridLayout, QMenu, QHBoxLayout
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QTimer, QPoint
 from PyQt5.QtGui import QPainter, QColor
@@ -194,9 +195,8 @@ class TOSShell(QMainWindow):
     def show_desktop(self):
         self.stack.setCurrentIndex(1)
 
-        # FIX: build everything ONCE AFTER login
         QTimer.singleShot(50, self.build_shortcuts)
-        QTimer.singleShot(100, self.register_start_menu)
+        QTimer.singleShot(120, self.register_start_menu)
 
     def build_shortcuts(self):
         if self._built:
@@ -219,38 +219,27 @@ class TOSShell(QMainWindow):
             sc.clicked.connect(cb)
             self.desk.grid.addWidget(sc, i // 4, i % 4)
 
-    # ---------------- START MENU FIX ----------------
+    # ---------------- START MENU (FIXED CLEAN) ----------------
     def register_start_menu(self):
         if self._menu_ready:
             return
         self._menu_ready = True
 
-        apps = [
-            ("terminal", self.run_terminal),
-            ("files", self.run_explorer),
-            ("settings", self.run_settings),
-            ("calc", self.run_calc),
-            ("clock", self.run_clock),
-        ]
+        # clear old entries safely
+        if hasattr(self.launcher, "clear_apps"):
+            self.launcher.clear_apps()
+        if hasattr(self.launcher, "clear_games"):
+            self.launcher.clear_games()
 
-        games = [
-            ("jumper", lambda: self.run_game("jumper")),
-            ("snake", lambda: self.run_game("snake")),
-            ("pong", lambda: self.run_game("pong")),
-            ("dodge", lambda: self.run_game("dodge")),
-            ("click", lambda: self.run_game("click")),
-            ("shooter", lambda: self.run_game("shooter")),
-        ]
+        # APPS
+        self.launcher.add_app("terminal", self.run_terminal)
+        self.launcher.add_app("files", self.run_explorer)
+        self.launcher.add_app("settings", self.run_settings)
+        self.launcher.add_app("calc", self.run_calc)
+        self.launcher.add_app("clock", self.run_clock)
 
-        self.launcher.add_section = lambda x: None  # safe no-op if not implemented
-
-        self.launcher.add_app("--- APPS ---", lambda: None)
-        for n, cb in apps:
-            self.launcher.add_app(n, cb)
-
-        self.launcher.add_app("--- GAMES ---", lambda: None)
-        for n, cb in games:
-            self.launcher.add_app(n, cb)
+        # GAMES (IMPORTANT: only once, no duplicates)
+        self.launcher.load_games(self.run_game)
 
     # ---------------- MENU ----------------
     def open_menu(self):

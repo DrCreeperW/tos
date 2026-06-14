@@ -1,9 +1,13 @@
-# tos launcher — proper start menu (Apps + Games sections)
+# tos launcher — fixed Apps/Games menu, no duplicates
 
 import os
+
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QPushButton,
-    QFrame, QScrollArea, QSizePolicy
+    QWidget,
+    QVBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea
 )
 from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QFont
@@ -14,6 +18,7 @@ class Launcher(QWidget):
         super().__init__(shell)
 
         self.shell = shell
+
         self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)
         self.setFixedSize(260, 360)
 
@@ -22,6 +27,7 @@ class Launcher(QWidget):
                 background: #FFD700;
                 border: 2px solid #000;
             }
+
             QPushButton {
                 background: #8B0000;
                 color: #FFD700;
@@ -29,75 +35,99 @@ class Launcher(QWidget):
                 padding: 4px;
                 text-align: left;
             }
+
             QPushButton:hover {
                 background: #000;
                 color: #FFD700;
             }
+
             QLabel {
                 color: #000;
                 font-weight: bold;
+                border: none;
             }
         """)
 
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(6, 6, 6, 6)
-        self.layout.setSpacing(8)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(6, 6, 6, 6)
 
-        # scroll area (prevents empty/overflow issues)
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QScrollArea.NoFrame)
 
         self.container = QWidget()
+        self.scroll.setWidget(self.container)
+
+        root.addWidget(self.scroll)
+
         self.vbox = QVBoxLayout(self.container)
         self.vbox.setAlignment(Qt.AlignTop)
+        self.vbox.setSpacing(6)
 
-        self.scroll.setWidget(self.container)
-        self.layout.addWidget(self.scroll)
-
-        # storage
-        self.apps = []
-        self.games = []
-
-        self._build_ui()
-
-    # ---------------- UI BUILD ----------------
-    def _build_ui(self):
-        self.vbox.addWidget(self._section_label("APPS"))
+        # APPS SECTION
+        self.apps_label = QLabel("APPS")
+        self.apps_label.setFont(QFont("Courier New", 10, QFont.Bold))
+        self.vbox.addWidget(self.apps_label)
 
         self.apps_container = QVBoxLayout()
         self.vbox.addLayout(self.apps_container)
 
-        self.vbox.addWidget(self._section_label("GAMES"))
+        # GAMES SECTION
+        self.games_label = QLabel("GAMES")
+        self.games_label.setFont(QFont("Courier New", 10, QFont.Bold))
+        self.vbox.addWidget(self.games_label)
 
         self.games_container = QVBoxLayout()
         self.vbox.addLayout(self.games_container)
 
-    def _section_label(self, text):
-        lbl = QLabel(text)
-        lbl.setFont(QFont("monospace", 10))
-        return lbl
+    # ---------------- INTERNAL ----------------
+    def _clear_layout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
 
-    # ---------------- API ----------------
-    def add_app(self, name, cb):
+    # ---------------- APPS ----------------
+    def clear_apps(self):
+        self._clear_layout(self.apps_container)
+
+    def add_app(self, name, callback):
         btn = QPushButton(name)
-        btn.clicked.connect(cb)
+        btn.clicked.connect(callback)
+        btn.clicked.connect(self.hide)
         self.apps_container.addWidget(btn)
 
-    def load_games(self, run_game_callback):
-        game_dir = os.path.join(os.path.dirname(__file__), "games")
+    # ---------------- GAMES ----------------
+    def clear_games(self):
+        self._clear_layout(self.games_container)
 
-        if not os.path.exists(game_dir):
+    def load_games(self, run_game_callback):
+        self.clear_games()
+
+        game_dir = os.path.join(os.path.dirname(__file__), "games")
+        if not os.path.isdir(game_dir):
             return
 
-        for file in os.listdir(game_dir):
-            if file.endswith(".py"):
-                name = file.replace(".py", "")
+        files = sorted(os.listdir(game_dir))
 
-                btn = QPushButton(name)
-                btn.clicked.connect(lambda _, n=name: run_game_callback(n))
-                self.games_container.addWidget(btn)
+        for filename in files:
+            if not filename.endswith(".py"):
+                continue
+            if filename.startswith("_"):
+                continue
+
+            name = filename[:-3]
+
+            btn = QPushButton(name)
+            btn.clicked.connect(lambda checked=False, n=name: run_game_callback(n))
+            btn.clicked.connect(self.hide)
+
+            self.games_container.addWidget(btn)
 
     # ---------------- POPUP ----------------
     def popup(self, pos: QPoint):
         self.move(pos)
         self.show()
+        self.raise_()
+        self.activateWindow()
