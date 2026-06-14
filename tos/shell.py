@@ -1,15 +1,13 @@
-# tos shell — start menu, desktop shortcuts, shutdown, all lowercase
-
 import sys
 import subprocess
 import os
 
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QDesktopWidget, QLabel, QFrame, QPushButton, QStackedWidget, QGridLayout, QMenu
+    QApplication, QMainWindow, QWidget, QVBoxLayout,
+    QLabel, QFrame, QPushButton, QStackedWidget, QGridLayout, QMenu, QHBoxLayout
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QTimer
-from PyQt5.QtGui import QPainter, QColor, QPen, QFont
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer, QPoint
+from PyQt5.QtGui import QPainter, QColor
 
 from theme import Colors, Fonts, Sizes
 import cursor
@@ -17,327 +15,361 @@ from taskbar import Taskbar
 from launcher import Launcher
 
 
+# ---------------- SAFE CURSOR ----------------
+def safe_cursor():
+    try:
+        return cursor.make_cursor()
+    except:
+        return None
+
+
+# ---------------- DESKTOP ----------------
 class DesktopBg(QWidget):
-    """red desktop background, holds shortcuts"""
-    def __init__(self, parent=None):
-        super().__init__(parent)
+    def __init__(self):
+        super().__init__()
         self.grid = QGridLayout(self)
         self.grid.setContentsMargins(10, 10, 10, 10)
-        self.grid.setSpacing(8)
+        self.grid.setSpacing(10)
         self.grid.setAlignment(Qt.AlignTop | Qt.AlignLeft)
 
     def paintEvent(self, e):
         p = QPainter(self)
         p.fillRect(self.rect(), Colors.RED_BG)
-        p.end()
 
 
+# ---------------- SHORTCUT ----------------
 class Shortcut(QWidget):
     clicked = pyqtSignal()
 
-    def __init__(self, label, parent=None):
-        super().__init__(parent)
-        self._l = label
+    def __init__(self, label):
+        super().__init__()
+        self.label = label
         self.setFixedSize(80, 68)
-        self.setCursor(cursor.TOS_CURSOR)
 
     def paintEvent(self, e):
         p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing, False)
-        p.fillRect(20, 4, 40, 40, QColor(0x5C, 0x00, 0x00))
-        p.setPen(QColor(0, 0, 0))
+        p.fillRect(20, 4, 40, 40, QColor("#5C0000"))
+        p.setPen(QColor("black"))
         p.drawRect(20, 4, 40, 40)
-        p.setPen(QColor(0xFF, 0xD7, 0x00))
+        p.setPen(QColor("#FFD700"))
         p.setFont(Fonts.body())
-        p.drawText(0, 46, 80, 20, Qt.AlignCenter, self._l)
+        p.drawText(self.rect(), Qt.AlignBottom | Qt.AlignHCenter, self.label)
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
             self.clicked.emit()
 
 
+# ---------------- WINDOW ----------------
 class AppWindow(QFrame):
-    closed = pyqtSignal(object)
-
-    def __init__(self, title, content, app_id=None):
+    def __init__(self, title, content):
         super().__init__()
-        self.app_id = app_id or title
+
         self.setWindowFlags(Qt.FramelessWindowHint)
-        self.setFrameShape(QFrame.NoFrame)
-        self._build(title, content)
-        self.resize(Sizes.MIN_WIN_WIDTH, Sizes.MIN_WIN_HEIGHT)
+        self.setFixedSize(Sizes.MIN_WIN_WIDTH, Sizes.MIN_WIN_HEIGHT)
 
-    def _build(self, title, content):
-        lo = QVBoxLayout(self)
-        lo.setContentsMargins(2, 2, 2, 2)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(0)
+
         tb = QFrame()
-        tb.setFixedHeight(20)
-        tb.setStyleSheet("background: #FFD700; border-bottom: 1px solid #000;")
-        def tb_press(e):
-            if e.button() == Qt.LeftButton:
-                self._drag = e.globalPos() - self.frameGeometry().topLeft()
-                e.accept()
-        def tb_move(e):
-            if e.buttons() == Qt.LeftButton and hasattr(self, '_drag'):
-                self.move(e.globalPos() - self._drag)
-                e.accept()
-        tb.mousePressEvent = tb_press
-        tb.mouseMoveEvent = tb_move
-        tlo = QHBoxLayout(tb)
-        tlo.setContentsMargins(4, 0, 2, 0)
-        lbl = QLabel(title)
-        lbl.setFont(Fonts.title())
-        lbl.setStyleSheet("color: #000; background: transparent;")
-        tlo.addWidget(lbl, stretch=1)
-        cx = QPushButton("x")
-        cx.setFixedSize(16, 16)
-        cx.setFont(Fonts.body())
-        cx.setStyleSheet("QPushButton { background: #5C0000; color: #FFD700; border: 1px solid #000; font-weight: bold; font-size: 9px; padding: 0; }")
-        cx.clicked.connect(self._close)
-        tlo.addWidget(cx)
-        lo.addWidget(tb)
-        self.content = content
-        lo.addWidget(self.content, stretch=1)
+        tb.setFixedHeight(22)
+        tb.setStyleSheet("background:#FFD700; border:1px solid black;")
 
-    def paintEvent(self, e):
-        super().paintEvent(e)
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing, False)
-        p.setPen(QPen(QColor(0, 0, 0), 1))
-        p.drawRect(0, 0, self.width() - 1, self.height() - 1)
-        p.end()
+        h = QHBoxLayout(tb)
+        h.setContentsMargins(6, 0, 6, 0)
 
-    def _close(self):
-        self.closed.emit(self)
-        self.close()
+        title_lbl = QLabel(title)
+        title_lbl.setFont(Fonts.title())
 
-    def mousePressEvent(self, e):
+        close_btn = QPushButton("x")
+        close_btn.setFixedSize(18, 18)
+        close_btn.setStyleSheet("background:#5C0000;color:#FFD700;")
+        close_btn.clicked.connect(self.close)
+
+        h.addWidget(title_lbl)
+        h.addStretch()
+        h.addWidget(close_btn)
+
+        layout.addWidget(tb)
+        layout.addWidget(content, 1)
+
+        self._drag = None
+        tb.mousePressEvent = self._press
+        tb.mouseMoveEvent = self._move
+
+    def _press(self, e):
         if e.button() == Qt.LeftButton:
             self._drag = e.globalPos() - self.frameGeometry().topLeft()
-            e.accept()
 
-    def mouseMoveEvent(self, e):
-        if e.buttons() == Qt.LeftButton and hasattr(self, '_drag'):
+    def _move(self, e):
+        if self._drag and e.buttons() == Qt.LeftButton:
             self.move(e.globalPos() - self._drag)
-            e.accept()
 
 
+# ---------------- SHELL ----------------
 class TOSShell(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("tos")
-        cursor.TOS_CURSOR = cursor.make_cursor()
-        self.setCursor(cursor.TOS_CURSOR)
-        self._windows = []
-        self._wcount = 0
-        self._logged = False
-        self._label = ""
-        self._build()
-        self._fullscreen()
-        self._show_login()
 
-    def _build(self):
+        QApplication.setAttribute(Qt.AA_DisableHighDpiScaling, True)
+
+        self.setWindowTitle("tos")
+
+        self.cursor = safe_cursor()
+        if self.cursor:
+            self.setCursor(self.cursor)
+
+        self.windows = []
+        self.logged = False
+        self._built = False
+        self._menu_ready = False
+
+        self.build_ui()
+        self.showFullScreen()
+
+        QTimer.singleShot(0, self.show_login)
+
+    # ---------------- UI ----------------
+    def build_ui(self):
         central = QWidget()
-        central.setStyleSheet("background: #8B0000;")
+        central.setStyleSheet("background:#8B0000;")
         self.setCentralWidget(central)
-        ml = QVBoxLayout(central)
-        ml.setContentsMargins(0, 0, 0, 0)
-        ml.setSpacing(0)
+
+        layout = QVBoxLayout(central)
+        layout.setContentsMargins(0, 0, 0, 0)
 
         self.stack = QStackedWidget()
-        ml.addWidget(self.stack, stretch=1)
+        layout.addWidget(self.stack)
 
-        # page 0: login
-        self._login_page = QWidget()
-        self._login_page.setAutoFillBackground(True)
-        lp = self._login_page.palette()
-        lp.setColor(self._login_page.backgroundRole(), QColor(0x8B, 0x00, 0x00))
-        self._login_page.setPalette(lp)
-        self._login_lo = QVBoxLayout(self._login_page)
-        self._login_lo.setContentsMargins(0, 0, 0, 0)
-        self.stack.addWidget(self._login_page)
+        # LOGIN
+        self.login_page = QWidget()
+        login_layout = QVBoxLayout(self.login_page)
 
-        # page 1: desktop
-        dp = QWidget()
-        dl = QVBoxLayout(dp)
-        dl.setContentsMargins(0, 0, 0, 0)
-        dl.setSpacing(0)
+        self.login_placeholder = QLabel("loading login...")
+        login_layout.addWidget(self.login_placeholder)
 
-        self.taskbar = Taskbar(launcher_callback=self._toggle_menu, shutdown_callback=self._show_shutdown_menu)
-        dl.addWidget(self.taskbar)
+        self.stack.addWidget(self.login_page)
+
+        # DESKTOP
+        desktop = QWidget()
+        dlayout = QVBoxLayout(desktop)
+        dlayout.setContentsMargins(0, 0, 0, 0)
+
+        self.taskbar = Taskbar(
+            launcher_callback=self.open_menu,
+            shutdown_callback=self.open_shutdown_menu
+        )
 
         self.desk = DesktopBg()
-        dl.addWidget(self.desk, stretch=1)
 
-        self.stack.addWidget(dp)
+        dlayout.addWidget(self.taskbar)
+        dlayout.addWidget(self.desk, 1)
+
+        self.stack.addWidget(desktop)
+
         self.launcher = Launcher(self)
-        self._register_apps()
-        QTimer.singleShot(300, self._build_shortcuts)
 
-    def _build_shortcuts(self):
+    # ---------------- LOGIN ----------------
+    def show_login(self):
+        try:
+            from apps.login import LoginScreen
+            self.login_widget = LoginScreen(self.login_page)
+
+            self.login_placeholder.hide()
+            self.login_page.layout().addWidget(self.login_widget)
+
+            self.login_widget.ok.connect(self.on_login_success)
+
+        except Exception as e:
+            self.login_placeholder.setText(f"login failed: {e}")
+
+        self.stack.setCurrentIndex(0)
+
+    def on_login_success(self, user):
+        self.logged = True
+        self.show_desktop()
+
+    # ---------------- DESKTOP ----------------
+    def show_desktop(self):
+        self.stack.setCurrentIndex(1)
+
+        # FIX: build everything ONCE AFTER login
+        QTimer.singleShot(50, self.build_shortcuts)
+        QTimer.singleShot(100, self.register_start_menu)
+
+    def build_shortcuts(self):
+        if self._built:
+            return
+        self._built = True
+
         items = [
-            ("terminal", self._run_terminal), ("files", self._run_explorer),
-            ("settings", self._run_settings), ("calc", self._run_calc),
-            ("clock", self._run_clock), ("jumper", self._run_jumper),
-            ("snake", self._run_snake), ("shooter", self._run_shooter),
+            ("terminal", self.run_terminal),
+            ("files", self.run_explorer),
+            ("settings", self.run_settings),
+            ("calc", self.run_calc),
+            ("clock", self.run_clock),
+            ("jumper", self.run_jumper),
+            ("snake", self.run_snake),
+            ("shooter", self.run_shooter),
         ]
-        for i, (name, cb) in enumerate(items):
-            sc = Shortcut(name)
+
+        for i, (n, cb) in enumerate(items):
+            sc = Shortcut(n)
             sc.clicked.connect(cb)
             self.desk.grid.addWidget(sc, i // 4, i % 4)
 
-    def _register_apps(self):
-        for name, cb in [
-            ("terminal", self._run_terminal),
-            ("file explorer", self._run_explorer),
-            ("calculator", self._run_calc),
-            ("clock", self._run_clock),
-            ("settings", self._run_settings),
-            ("jumper", self._run_jumper), ("snake", self._run_snake),
-            ("pong", self._run_pong), ("dodge", self._run_dodge),
-            ("click", self._run_click), ("shooter", self._run_shooter),
-            ("???", self._run_egg1), ("void", self._run_egg2),
-            ("beep", self._run_egg3), ("nope", self._run_egg4),
-            ("y & a", self._run_egg_ya),
-        ]:
-            self.launcher.add_app(name, cb)
-        self.launcher.addSeparator()
-        self.launcher.add_app("logout", self._logout)
-        self.launcher.add_app("shutdown", self._shutdown)
+    # ---------------- START MENU FIX ----------------
+    def register_start_menu(self):
+        if self._menu_ready:
+            return
+        self._menu_ready = True
 
-    def _toggle_menu(self):
-        self.launcher.popup(self.taskbar.menu_btn.mapToGlobal(self.taskbar.menu_btn.rect().bottomLeft()))
+        apps = [
+            ("terminal", self.run_terminal),
+            ("files", self.run_explorer),
+            ("settings", self.run_settings),
+            ("calc", self.run_calc),
+            ("clock", self.run_clock),
+        ]
 
-    def _show_shutdown_menu(self):
-        b = self.taskbar._shut_btn
-        m = QMenu(self)
-        m.setStyleSheet("QMenu { background: #5C0000; color: #FFD700; border: 2px solid #000; font-family: More Perfect DOS VGA; font-size: 12px; padding: 2px; } QMenu::item { padding: 6px 16px; } QMenu::item:selected { background: #FFD700; color: #000; }")
-        a1 = m.addAction("logout")
-        a1.triggered.connect(self._logout)
-        a2 = m.addAction("shutdown")
-        a2.triggered.connect(self._shutdown)
-        m.popup(b.mapToGlobal(b.rect().bottomLeft()))
+        games = [
+            ("jumper", lambda: self.run_game("jumper")),
+            ("snake", lambda: self.run_game("snake")),
+            ("pong", lambda: self.run_game("pong")),
+            ("dodge", lambda: self.run_game("dodge")),
+            ("click", lambda: self.run_game("click")),
+            ("shooter", lambda: self.run_game("shooter")),
+        ]
 
-    def _fullscreen(self):
-        s = QDesktopWidget().screenGeometry(0)
-        self.setGeometry(s)
-        self.showFullScreen()
-        self.raise_()
+        self.launcher.add_section = lambda x: None  # safe no-op if not implemented
 
-    def _show_login(self):
-        from apps.login import LoginScreen
-        self._login = LoginScreen(self._login_page)
-        self._login_lo.addWidget(self._login)
-        self._login.ok.connect(self._on_login)
+        self.launcher.add_app("--- APPS ---", lambda: None)
+        for n, cb in apps:
+            self.launcher.add_app(n, cb)
+
+        self.launcher.add_app("--- GAMES ---", lambda: None)
+        for n, cb in games:
+            self.launcher.add_app(n, cb)
+
+    # ---------------- MENU ----------------
+    def open_menu(self):
+        btn = getattr(self.taskbar, "menu_btn", None)
+        if not btn:
+            return
+
+        pos = btn.mapToGlobal(btn.rect().bottomLeft())
+        screen = QApplication.primaryScreen().geometry()
+
+        x = max(10, min(pos.x(), screen.width() - 220))
+        y = max(10, min(pos.y(), screen.height() - 320))
+
+        self.launcher.setFixedSize(200, 300)
+        self.launcher.popup(QPoint(x, y))
+
+    # ---------------- SHUTDOWN ----------------
+    def open_shutdown_menu(self):
+        menu = QMenu(self)
+
+        menu.setStyleSheet("""
+            QMenu {
+                background: #8B0000;
+                color: #FFD700;
+                border: 2px solid #000;
+                font-family: monospace;
+            }
+            QMenu::item:selected {
+                background: #FFD700;
+                color: #000;
+            }
+        """)
+
+        a1 = menu.addAction("logout")
+        a2 = menu.addAction("shutdown")
+
+        a1.triggered.connect(self.logout)
+        a2.triggered.connect(self.shutdown)
+
+        btn = getattr(self.taskbar, "_shut_btn", None)
+        if btn:
+            menu.exec_(btn.mapToGlobal(btn.rect().bottomLeft()))
+
+    def logout(self):
+        self.logged = False
+        self._built = False
+        self._menu_ready = False
         self.stack.setCurrentIndex(0)
+        QTimer.singleShot(0, self.show_login)
 
-    def _on_login(self, user):
-        self._login.hide()
-        self._login.deleteLater()
-        self._login = None
-        self._logged = True
-        self._label = user
-        self.taskbar.show()
-        self.stack.setCurrentIndex(1)
-
-    def _logout(self):
-        for w in list(self._windows):
-            w.close()
-        self._windows.clear()
-        self._wcount = 0
-        self._logged = False
-        self.taskbar.hide()
-        self._show_login()
-
-    def _shutdown(self):
+    def shutdown(self):
         QApplication.quit()
 
-    def launch(self, title, widget, app_id=None):
-        if not self._logged:
-            return None
-        w = AppWindow(title, widget, app_id=app_id)
-        w.closed.connect(self._on_close)
-        self._wcount += 1
-        off = ((self._wcount % 6) * 25) + 30
-        w.move(off, 30 + off)
+    # ---------------- WINDOWS ----------------
+    def launch(self, title, widget):
+        w = AppWindow(title, widget)
         w.setParent(self.desk)
         w.show()
-        w.raise_()
-        self._windows.append(w)
-        b = self.taskbar.add_app_btn(title, lambda w=w: self._focus(w))
-        w._btn = b
-        return w
+        self.windows.append(w)
 
-    def _focus(self, w):
-        if w in self._windows:
-            w.raise_()
-            w.setFocus()
+    # ---------------- GAME ----------------
+    def run_game(self, name):
+        path = os.path.join(os.path.dirname(__file__), "games", f"{name}.py")
+        if os.path.exists(path):
+            subprocess.Popen([sys.executable, path], cwd=os.path.dirname(path))
 
-    def _on_close(self, w):
-        if w in self._windows:
-            self._windows.remove(w)
-            if hasattr(w, '_btn'):
-                self.taskbar.remove_app_btn(w._btn)
-
-    def _run_terminal(self):
+    # ---------------- APPS ----------------
+    def run_terminal(self):
         from apps.terminal import Terminal
         term = Terminal()
-        def on_egg(cmd):
-            if cmd == "y&a":
-                # remove old egg label if exists
-                if hasattr(self, '_egg_label') and self._egg_label:
-                    self._egg_label.deleteLater()
+
+        def egg(cmd):
+            if cmd.strip().lower() == "y&a":
                 lbl = QLabel("y & a", self.desk)
-                lbl.setStyleSheet("color: #FFD700; background: transparent; font-family: 'More Perfect DOS VGA'; font-size: 16px; font-weight: bold;")
+                lbl.setStyleSheet("color:#FFD700;")
                 lbl.adjustSize()
-                lbl.move(self.desk.width() - lbl.width() - 10, self.desk.height() - lbl.height() - 10)
+                lbl.move(
+                    self.desk.width() - lbl.width() - 10,
+                    self.desk.height() - lbl.height() - 10
+                )
                 lbl.show()
-                self._egg_label = lbl
-        term.command_entered.connect(on_egg)
+
+        term.command_entered.connect(egg)
         self.launch("terminal", term)
 
-    def _run_explorer(self):
+    def run_explorer(self):
         from apps.file_explorer import FileExplorer
         self.launch("files", FileExplorer())
 
-    def _run_calc(self):
+    def run_calc(self):
         from apps.calculator import Calculator
         self.launch("calc", Calculator())
 
-    def _run_clock(self):
+    def run_clock(self):
         from apps.clock import Clock
         self.launch("clock", Clock())
 
-    def _run_settings(self):
+    def run_settings(self):
         from apps.settings import Settings
         self.launch("settings", Settings())
 
-    def _run_game(self, name):
-        game_path = os.path.join(os.path.dirname(__file__), "games", f"{name}.py")
-        if sys.platform == "win32":
-            subprocess.Popen([sys.executable, "-m", "python", game_path], cwd=os.path.dirname(game_path))
-        else:
-            subprocess.Popen(["/usr/bin/python3", game_path], env={**os.environ, "DISPLAY": os.environ.get("DISPLAY", ":99")})
-
-    def _run_jumper(self):   self._run_game("jumper")
-    def _run_snake(self):    self._run_game("snake")
-    def _run_pong(self):     self._run_game("pong")
-    def _run_dodge(self):    self._run_game("dodge")
-    def _run_click(self):    self._run_game("click")
-    def _run_shooter(self):  self._run_game("shooter")
-    def _run_egg_ya(self):   self._run_game("egg_ya")
-    def _run_egg1(self):     self._run_game("egg1")
-    def _run_egg2(self):     self._run_game("egg2")
-    def _run_egg3(self):     self._run_game("egg3")
-    def _run_egg4(self):     self._run_game("egg4")
+    def run_jumper(self): self.run_game("jumper")
+    def run_snake(self): self.run_game("snake")
+    def run_pong(self): self.run_game("pong")
+    def run_dodge(self): self.run_game("dodge")
+    def run_click(self): self.run_game("click")
+    def run_shooter(self): self.run_game("shooter")
 
 
+# ---------------- MAIN ----------------
 def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    app.setAttribute(Qt.AA_DisableHighDpiScaling, True)
+
     shell = TOSShell()
+    shell.show()
+
     sys.exit(app.exec_())
+
 
 if __name__ == "__main__":
     main()

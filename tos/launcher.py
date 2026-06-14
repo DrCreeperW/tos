@@ -1,68 +1,103 @@
-# tos launcher — real start menu panel (replaces broken QMenu version)
+# tos launcher — proper start menu (Apps + Games sections)
 
+import os
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QPushButton, QLabel, QFrame, QScrollArea, QGridLayout, QMenu, QAction
+    QWidget, QVBoxLayout, QLabel, QPushButton,
+    QFrame, QScrollArea, QSizePolicy
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QFont
 
 
-class Launcher(QMenu):
-    def __init__(self, parent=None):
-        super().__init__(parent)
+class Launcher(QWidget):
+    def __init__(self, shell=None):
+        super().__init__(shell)
 
-        self.setWindowFlags(Qt.Popup)  # behaves like start menu popup
-        self.setFixedSize(200, 300)
+        self.shell = shell
+        self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)
+        self.setFixedSize(260, 360)
 
         self.setStyleSheet("""
             QWidget {
                 background: #FFD700;
-                border: 2px solid black;
-                color: black;
-                font-family: monospace;
-                font-size: 12px;
+                border: 2px solid #000;
             }
-
             QPushButton {
-                background: transparent;
-                border: none;
-                text-align: left;
-                padding: 6px;
-            }
-
-            QPushButton:hover {
-                background: black;
+                background: #8B0000;
                 color: #FFD700;
+                border: 1px solid #000;
+                padding: 4px;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background: #000;
+                color: #FFD700;
+            }
+            QLabel {
+                color: #000;
+                font-weight: bold;
             }
         """)
 
-        self._sections = {}
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(6, 6, 6, 6)
+        self.layout.setSpacing(8)
 
-    def add_section(self, name):
-        if name not in self._sections:
-            separator = QAction(None)
-            separator.setSeparator(True)
-            label = QAction(name)
-            label.setFont(QFont("monospace", 8, QFont.Bold))
-            label.setEnabled(False)
-            self.addAction(separator)
-            self.addAction(label)
-            self._sections[name] = []
+        # scroll area (prevents empty/overflow issues)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
 
-    def add_action(self, section, name, cb):
-        if section not in self._sections:
-            raise ValueError(f"Section '{section}' does not exist")
-        action = QAction(name)
-        action.triggered.connect(cb)
-        self.addAction(action)
-        self._sections[section].append(action)
+        self.container = QWidget()
+        self.vbox = QVBoxLayout(self.container)
+        self.vbox.setAlignment(Qt.AlignTop)
+
+        self.scroll.setWidget(self.container)
+        self.layout.addWidget(self.scroll)
+
+        # storage
+        self.apps = []
+        self.games = []
+
+        self._build_ui()
+
+    # ---------------- UI BUILD ----------------
+    def _build_ui(self):
+        self.vbox.addWidget(self._section_label("APPS"))
+
+        self.apps_container = QVBoxLayout()
+        self.vbox.addLayout(self.apps_container)
+
+        self.vbox.addWidget(self._section_label("GAMES"))
+
+        self.games_container = QVBoxLayout()
+        self.vbox.addLayout(self.games_container)
+
+    def _section_label(self, text):
+        lbl = QLabel(text)
+        lbl.setFont(QFont("monospace", 10))
+        return lbl
+
+    # ---------------- API ----------------
+    def add_app(self, name, cb):
+        btn = QPushButton(name)
+        btn.clicked.connect(cb)
+        self.apps_container.addWidget(btn)
+
+    def load_games(self, run_game_callback):
+        game_dir = os.path.join(os.path.dirname(__file__), "games")
+
+        if not os.path.exists(game_dir):
+            return
+
+        for file in os.listdir(game_dir):
+            if file.endswith(".py"):
+                name = file.replace(".py", "")
+
+                btn = QPushButton(name)
+                btn.clicked.connect(lambda _, n=name: run_game_callback(n))
+                self.games_container.addWidget(btn)
 
     # ---------------- POPUP ----------------
-    def popup(self, pos):
+    def popup(self, pos: QPoint):
         self.move(pos)
         self.show()
-        self.raise_()
-
-    # optional compatibility (if your shell calls it)
-    def refresh(self):
-        self.update()
