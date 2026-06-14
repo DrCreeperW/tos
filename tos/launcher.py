@@ -11,6 +11,8 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QFont
+from cursor import apply_cursors
+from theme import Colors
 
 
 class Launcher(QWidget):
@@ -80,6 +82,34 @@ class Launcher(QWidget):
         self.games_container = QVBoxLayout()
         self.vbox.addLayout(self.games_container)
 
+        self.refresh_theme()
+
+    # ---------------- THEME ----------------
+    def refresh_theme(self):
+        """Re-apply stylesheet using the current theme colors."""
+        self.setStyleSheet("""
+            QWidget {
+                background: """ + Colors.yellow_css() + """;
+                border: 2px solid #000;
+            }
+            QPushButton {
+                background: """ + Colors.bg_css() + """;
+                color: """ + Colors.yellow_css() + """;
+                border: 1px solid #000;
+                padding: 4px;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background: #000;
+                color: """ + Colors.yellow_css() + """;
+            }
+            QLabel {
+                color: #000;
+                font-weight: bold;
+                border: none;
+            }
+        """)
+
     # ---------------- INTERNAL ----------------
     def _clear_layout(self, layout):
         while layout.count():
@@ -97,6 +127,7 @@ class Launcher(QWidget):
         btn.clicked.connect(callback)
         btn.clicked.connect(self.hide)
         self.apps_container.addWidget(btn)
+        apply_cursors(btn)
 
     # ---------------- GAMES ----------------
     def clear_games(self):
@@ -124,6 +155,7 @@ class Launcher(QWidget):
             btn.clicked.connect(self.hide)
 
             self.games_container.addWidget(btn)
+            apply_cursors(btn)
 
     # ---------------- POPUP ----------------
     def popup(self, pos: QPoint):

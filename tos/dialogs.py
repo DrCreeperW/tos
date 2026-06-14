@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QBrush
 from theme import Fonts
+from cursor import apply_cursors
 
 
 # ---- styling ----
@@ -151,6 +152,9 @@ class TOSFileDialog(QDialog):
         action.clicked.connect(self._confirm)
         bl.addWidget(action)
         lo.addLayout(bl)
+
+        # apply custom cursors (no Windows cursors)
+        apply_cursors(self)
 
     # ----------------------------------------------------------- browsing
     def _refresh(self):

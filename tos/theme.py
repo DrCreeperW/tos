@@ -16,6 +16,22 @@ class Colors:
     def to_css(c):
         return c.name()
 
+    @classmethod
+    def bg_css(cls):
+        return cls.RED_BG.name()
+
+    @classmethod
+    def dark_css(cls):
+        return cls.RED_DARK.name()
+
+    @classmethod
+    def yellow_css(cls):
+        return cls.YELLOW_MAIN.name()
+
+    @classmethod
+    def dim_css(cls):
+        return cls.YELLOW_DIM.name()
+
 
 class Fonts:
     DEFAULT_FONT = "More Perfect DOS VGA"

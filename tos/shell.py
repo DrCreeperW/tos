@@ -14,6 +14,7 @@ from PyQt5.QtGui import QPainter, QColor, QPen
 
 from theme import Colors, Fonts, Sizes
 import cursor
+from cursor import apply_cursors
 from taskbar import Taskbar
 from launcher import Launcher
 
@@ -255,6 +256,9 @@ class TOSShell(QMainWindow):
         self.build_shortcuts()
         self.register_start_menu()
 
+        # apply custom cursors to everything (no Windows cursors)
+        apply_cursors(self)
+
     # ---------------- LOGIN ----------------
     def show_login(self):
         if self._login_widget is not None:
@@ -269,6 +273,7 @@ class TOSShell(QMainWindow):
             self._login_widget.ok.connect(self.on_login_success)
         except Exception as e:
             self.login_placeholder.setText(f"login failed: {e}")
+        apply_cursors(self._login_widget or self.login_page)
         self.stack.setCurrentIndex(0)
 
     def on_login_success(self, user):
@@ -380,6 +385,8 @@ class TOSShell(QMainWindow):
         w.closed.connect(self._on_window_closed)
         w.show()
         w.raise_()
+        # apply custom cursors to the new window + all its children
+        apply_cursors(w)
         self.windows.append(w)
         # running-app button in the taskbar (clicked passes a bool -> bind it)
         b = self.taskbar.add_app_btn(
@@ -473,7 +480,24 @@ class TOSShell(QMainWindow):
 
     def run_settings(self):
         from apps.settings import Settings
-        self.launch("settings", Settings())
+        s = Settings()
+        s.changed.connect(self._apply_theme)
+        self.launch("settings", s)
+
+    def _apply_theme(self, name):
+        """Propagate theme change to the whole shell — desktop, taskbar,
+        launcher, and all open windows."""
+        # desktop background + shell background repaint automatically via
+        # Colors.RED_BG (DesktopBg reads it at paint time)
+        self.desk.update()
+        # central widget background
+        self.centralWidget().setStyleSheet("background:" + Colors.bg_css() + ";")
+        # taskbar + launcher rebuild stylesheets
+        self.taskbar.refresh_theme()
+        self.launcher.refresh_theme()
+        # repaint all open windows so their QFrame borders update
+        for w in self.windows:
+            w.update()
 
     def run_notepad(self):
         from apps.notepad import Notepad

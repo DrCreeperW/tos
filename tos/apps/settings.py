@@ -34,11 +34,12 @@ class Settings(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._cur = "red"
+        self.setFixedSize(300, 380)
         self._build()
 
     def paintEvent(self, e):
         p = QPainter(self)
-        p.fillRect(self.rect(), QColor(0x5C, 0x00, 0x00))
+        p.fillRect(self.rect(), Colors.RED_DARK)
         p.end()
 
     def _build(self):
@@ -113,8 +114,9 @@ class Settings(QWidget):
         self._cur = k
         self.nl.setText(n)
         self._rebuild()
-        self.changed.emit(k)
+        # update Colors FIRST, then emit (signal handler reads Colors)
         Colors.RED_BG = QColor(*rb)
         Colors.YELLOW_MAIN = QColor(*ym)
         Colors.RED_DARK = QColor(*rd)
+        self.changed.emit(k)
         print(f"[settings] theme: {n}")
