@@ -1,23 +1,37 @@
-# egg3: beep machine
-import sys, os
-os.environ["DISPLAY"] = os.environ.get("DISPLAY", ":99")
-import pygame as pg
-pg.init()
-s = pg.display.set_mode((400, 200))
-pg.display.set_caption("")
-f = pg.font.SysFont("More Perfect DOS VGA", 14)
-c = pg.time.Clock()
-r = True
-notes = ["beep","boop","bip","bop","baap"]
-i = 0
-while r and i < 50:
-    for e in pg.event.get():
-        if e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE:
-            r = False
-    s.fill((0x5C,0,0))
-    t = f.render(notes[i % len(notes)], True, (0xFF,0xD7,0))
-    s.blit(t, (200-t.get_width()//2, 90))
-    pg.display.flip()
-    c.tick(4)
-    i += 1
-pg.quit()
+# egg3: beep machine — embedded Qt widget (no pygame)
+from PyQt5.QtWidgets import QWidget
+from PyQt5.QtCore import Qt, QTimer, QRect
+from PyQt5.QtGui import QPainter, QColor, QFont
+
+W, H = 400, 200
+NOTES = ["beep", "boop", "bip", "bop", "baap"]
+
+
+def _font(sz, bold=False):
+    f = QFont("More Perfect DOS VGA")
+    f.setPixelSize(sz)
+    f.setBold(bold)
+    return f
+
+
+class Game(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(W, H)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.i = 0
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._tick)
+        self._timer.start(250)   # ~4 fps like the original
+
+    def _tick(self):
+        self.i += 1
+        self.update()
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor(0x5C, 0x00, 0x00))
+        p.setPen(QColor(0xFF, 0xD7, 0x00))
+        p.setFont(_font(14))
+        p.drawText(QRect(0, 80, W, 20), Qt.AlignCenter, NOTES[self.i % len(NOTES)])
+        p.end()

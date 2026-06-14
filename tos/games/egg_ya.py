@@ -1,35 +1,54 @@
-# egg ya — cryptic "y & a" message
-import sys, os, random, math
-os.environ["DISPLAY"] = os.environ.get("DISPLAY", ":99")
-import pygame as pg
+# egg ya — cryptic "y & a" message, embedded Qt widget (no pygame)
+import random
 
-pg.init()
-s = pg.display.set_mode((400, 300))
-pg.display.set_caption("")
-f = pg.font.SysFont("More Perfect DOS VGA", 48, bold=True)
-f2 = pg.font.SysFont("More Perfect DOS VGA", 14)
-c = pg.time.Clock()
-r = True
-t = 0
-while r and t < 300:
-    for e in pg.event.get():
-        if e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE:
-            r = False
-        if e.type == pg.QUIT:
-            r = False
-    s.fill((0x5C, 0, 0))
-    # flicker text
-    if t % 15 < 12:
-        txt = f.render("y & a", True, (0xFF, 0xD7, 0))
-        s.blit(txt, (200 - txt.get_width()//2, 120 - txt.get_height()//2))
-    # random dots
-    for _ in range(20):
-        dx = random.randint(0, 400)
-        dy = random.randint(0, 300)
-        s.set_at((dx, dy), (0xFF, 0xD7, 0) if random.random() > 0.5 else (0xCC, 0xAC, 0))
-    hint = f2.render("press esc to exit", True, (0xCC, 0xAC, 0))
-    s.blit(hint, (200 - hint.get_width()//2, 230))
-    pg.display.flip()
-    c.tick(10)
-    t += 1
-pg.quit()
+from PyQt5.QtWidgets import QWidget
+from PyQt5.QtCore import Qt, QTimer, QRect
+from PyQt5.QtGui import QPainter, QColor, QFont
+
+W, H = 400, 300
+
+
+def _font(sz, bold=False):
+    f = QFont("More Perfect DOS VGA")
+    f.setPixelSize(sz)
+    f.setBold(bold)
+    return f
+
+
+class Game(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(W, H)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.t = 0
+        self._dots = []   # list of (x, y, QColor)
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._tick)
+        self._timer.start(100)   # ~10 fps like the original
+
+    def _tick(self):
+        self.t += 1
+        self._dots = []
+        for _ in range(20):
+            dx = random.randint(0, W)
+            dy = random.randint(0, H)
+            c = QColor(0xFF, 0xD7, 0x00) if random.random() > 0.5 else QColor(0xCC, 0xAC, 0x00)
+            self._dots.append((dx, dy, c))
+        self.update()
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor(0x5C, 0x00, 0x00))
+        # flicker text
+        if self.t % 15 < 12:
+            p.setPen(QColor(0xFF, 0xD7, 0x00))
+            p.setFont(_font(48, True))
+            p.drawText(QRect(0, 96, W, 48), Qt.AlignCenter, "y & a")
+        # random dots
+        for dx, dy, c in self._dots:
+            p.setPen(c)
+            p.drawPoint(dx, dy)
+        p.setPen(QColor(0xCC, 0xAC, 0x00))
+        p.setFont(_font(14))
+        p.drawText(QRect(0, 230, W, 20), Qt.AlignCenter, "press esc to close")
+        p.end()

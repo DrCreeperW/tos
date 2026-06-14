@@ -1,24 +1,43 @@
-# egg2: fake loading
-import sys, os, random
-os.environ["DISPLAY"] = os.environ.get("DISPLAY", ":99")
-import pygame as pg
-pg.init()
-s = pg.display.set_mode((400, 200))
-pg.display.set_caption("")
-f = pg.font.SysFont("More Perfect DOS VGA", 14)
-c = pg.time.Clock()
-r = True
-for i in range(101):
-    for e in pg.event.get():
-        if e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE:
-            r = False
-    if not r: break
-    s.fill((0x5C,0,0))
-    t = f.render(f"loading... {i}%", True, (0xFF,0xD7,0))
-    s.blit(t, (200-t.get_width()//2, 80))
-    pg.draw.rect(s, (0xFF,0xD7,0), (100, 110, i*2, 10))
-    pg.draw.rect(s, (0,0,0), (100, 110, 200, 10), 1)
-    pg.display.flip()
-    c.tick(random.randint(5,30))
-pg.time.wait(2000)
-pg.quit()
+# egg2: fake loading — embedded Qt widget (no pygame)
+import random
+
+from PyQt5.QtWidgets import QWidget
+from PyQt5.QtCore import Qt, QTimer, QRect
+from PyQt5.QtGui import QPainter, QColor, QFont
+
+W, H = 400, 200
+
+
+def _font(sz, bold=False):
+    f = QFont("More Perfect DOS VGA")
+    f.setPixelSize(sz)
+    f.setBold(bold)
+    return f
+
+
+class Game(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(W, H)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.pct = 0
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._tick)
+        self._timer.start(60)
+
+    def _tick(self):
+        if self.pct < 100 and random.random() < 0.7:
+            self.pct += 1
+        self.update()
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor(0x5C, 0x00, 0x00))
+        p.setPen(QColor(0xFF, 0xD7, 0x00))
+        p.setFont(_font(14))
+        p.drawText(QRect(0, 70, W, 20), Qt.AlignCenter, f"loading... {self.pct}%")
+        # progress bar
+        p.fillRect(100, 110, self.pct * 2, 10, QColor(0xFF, 0xD7, 0x00))
+        p.setPen(QColor(0, 0, 0)); p.setBrush(Qt.NoBrush)
+        p.drawRect(100, 110, 200, 10)
+        p.end()

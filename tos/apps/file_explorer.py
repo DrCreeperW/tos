@@ -3,9 +3,20 @@
 import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
     QTreeWidget, QTreeWidgetItem, QLabel, QPushButton, QHeaderView)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QFont, QBrush
 from theme import Fonts
+
+
+# extensions that open in notepad when double-clicked
+TEXT_EXTS = {
+    ".txt", ".md", ".py", ".json", ".csv", ".log", ".ini", ".cfg",
+    ".sh", ".bat", ".xml", ".html", ".css", ".js", ".yaml", ".yml",
+}
+
+
+def _is_text(fp):
+    return os.path.splitext(fp)[1].lower() in TEXT_EXTS
 
 
 def _size(b):
@@ -15,6 +26,9 @@ def _size(b):
 
 
 class FileExplorer(QWidget):
+    # emitted with a file path when a text file is double-clicked
+    open_file = pyqtSignal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._path = os.path.expanduser("~")
@@ -101,8 +115,13 @@ class FileExplorer(QWidget):
 
     def _on_item(self, it, col):
         fp = it.data(0, Qt.UserRole)
-        if fp and os.path.isdir(fp):
+        if not fp:
+            return
+        if os.path.isdir(fp):
             self._open(fp)
+        elif _is_text(fp) or os.path.splitext(fp)[1].lower() == ".tosp":
+            # open text files in notepad / tosp files in paint (shell decides)
+            self.open_file.emit(fp)
 
     def _go_up(self):
         p = os.path.dirname(self._path)
