@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
     QLabel, QFrame, QPushButton, QStackedWidget,
     QGridLayout, QMenu, QHBoxLayout
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QTimer, QPoint, QEvent
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer, QPoint, QEvent, QRect
 from PyQt5.QtGui import QPainter, QColor, QPen
 
 from theme import Colors, Fonts, Sizes
@@ -29,6 +29,87 @@ def _cursor():
     """
     c = cursor.get_cursor()
     return c if c is not None else Qt.ArrowCursor
+
+
+# ---------------- BOOT SCREEN ----------------
+class BootScreen(QWidget):
+    """Retro BIOS-style boot sequence shown before login.
+
+    Reveals boot messages one line at a time, then a splash, then calls
+    done_callback(). Any key press skips straight to the end.
+    """
+    done = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self._lines = [
+            "tos bios v1.0",
+            "(c) tos systems",
+            "",
+            "cpu:            [ ok ]",
+            "memory:         640k   [ ok ]",
+            "disk:           [ ok ]",
+            "display:        vga    [ ok ]",
+            "keyboard:       [ ok ]",
+            "mouse:          [ ok ]",
+            "",
+            "loading tos kernel...",
+            "loading drivers...",
+            "loading desktop...",
+            "",
+            "welcome to tos",
+        ]
+        self._shown = 0
+        self._finished = False
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._reveal)
+        self._timer.start(120)   # ms per line
+
+    def _reveal(self):
+        if self._shown < len(self._lines):
+            self._shown += 1
+            self.update()
+        else:
+            self._timer.stop()
+            QTimer.singleShot(800, self._finish)
+
+    def _finish(self):
+        if self._finished:
+            return
+        self._finished = True
+        self.done.emit()
+
+    def keyPressEvent(self, e):
+        # skip the boot sequence
+        if not self._finished:
+            self._shown = len(self._lines)
+            self._timer.stop()
+            self.update()
+            QTimer.singleShot(200, self._finish)
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor(0, 0, 0))
+        p.setPen(QColor(0xFF, 0xD7, 0x00))
+        p.setFont(Fonts.body())
+        y = 40
+        for i in range(self._shown):
+            line = self._lines[i]
+            if line == "welcome to tos":
+                p.setFont(Fonts.huge())
+                p.drawText(QRect(0, y - 10, self.width(), 50),
+                           Qt.AlignCenter, line)
+                p.setFont(Fonts.body())
+                y += 50
+            else:
+                p.drawText(40, y, self.width() - 80, 20,
+                           Qt.AlignLeft | Qt.AlignTop, line)
+                y += 22
+        # blinking cursor on the last revealed line while booting
+        if not self._finished and self._shown < len(self._lines):
+            p.drawText(40, y, 20, 20, Qt.AlignLeft | Qt.AlignTop, "_")
+        p.end()
 
 
 # ---------------- DESKTOP ----------------
@@ -206,13 +287,19 @@ class TOSShell(QMainWindow):
 
         self.build_ui()
         self.show_desktop_screen()
-        self.show_login()
+        # start on the boot screen (page 0); it calls show_login() when done
+        self.stack.setCurrentIndex(0)
+        self._boot.setFocus()
 
     # ---------------- UI ----------------
     def show_desktop_screen(self):
         self.showFullScreen()
         self.raise_()
         self.activateWindow()
+
+    def _on_boot_done(self):
+        """Boot sequence finished -> show the login screen."""
+        self.show_login()
 
     def build_ui(self):
         central = QWidget()
@@ -225,7 +312,12 @@ class TOSShell(QMainWindow):
         self.stack = QStackedWidget()
         layout.addWidget(self.stack)
 
-        # LOGIN
+        # PAGE 0: BOOT SCREEN
+        self._boot = BootScreen()
+        self._boot.done.connect(self._on_boot_done)
+        self.stack.addWidget(self._boot)
+
+        # PAGE 1: LOGIN
         self.login_page = QWidget()
         self.login_page.setStyleSheet("background:#8B0000;")
         login_layout = QVBoxLayout(self.login_page)
@@ -282,11 +374,11 @@ class TOSShell(QMainWindow):
         except Exception as e:
             self.login_placeholder.setText(f"login failed: {e}")
         apply_cursors(self._login_widget or self.login_page)
-        self.stack.setCurrentIndex(0)
+        self.stack.setCurrentIndex(1)
 
     def on_login_success(self, user):
         self.logged = True
-        self.stack.setCurrentIndex(1)
+        self.stack.setCurrentIndex(2)
         self.desk.updateGeometry()
         self.desk.update()
 
