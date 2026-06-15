@@ -17,6 +17,7 @@ import cursor
 from cursor import apply_cursors
 from taskbar import Taskbar
 from launcher import Launcher
+from icons import draw_icon
 
 
 # ---------------- SAFE CURSOR ----------------
@@ -49,17 +50,24 @@ class DesktopBg(QWidget):
 class Shortcut(QWidget):
     clicked = pyqtSignal()
 
-    def __init__(self, label, parent=None):
+    def __init__(self, label, icon_name=None, parent=None):
         super().__init__(parent)
         self.label = label
+        self.icon_name = icon_name or label
         self.setFixedSize(80, 68)
         self.setCursor(_cursor())
 
     def paintEvent(self, e):
         p = QPainter(self)
+        # icon box background
         p.fillRect(20, 4, 40, 40, QColor(0x5C, 0x00, 0x00))
+        # draw the pixel-art icon centered in the box
+        draw_icon(self.icon_name, p, 20, 4)
+        # black border around the box
         p.setPen(QColor("black"))
+        p.setBrush(Qt.NoBrush)
         p.drawRect(20, 4, 40, 40)
+        # label below
         p.setPen(QColor(0xFF, 0xD7, 0x00))
         p.setFont(Fonts.body())
         p.drawText(self.rect(), Qt.AlignBottom | Qt.AlignHCenter, self.label)
@@ -289,19 +297,19 @@ class TOSShell(QMainWindow):
         self._built = True
 
         items = [
-            ("terminal", self.run_terminal),
-            ("files", self.run_explorer),
-            ("settings", self.run_settings),
-            ("calc", self.run_calc),
-            ("clock", self.run_clock),
-            ("notepad", self.run_notepad),
-            ("paint", self.run_paint),
-            ("snake", self.run_snake),
-            ("jumper", self.run_jumper),
+            ("terminal", "terminal", self.run_terminal),
+            ("files",    "files",    self.run_explorer),
+            ("settings", "settings", self.run_settings),
+            ("calc",     "calc",     self.run_calc),
+            ("clock",    "clock",    self.run_clock),
+            ("notepad",  "notepad",  self.run_notepad),
+            ("paint",    "paint",    self.run_paint),
+            ("snake",    "snake",    self.run_snake),
+            ("jumper",   "jumper",   self.run_jumper),
         ]
 
-        for i, (n, cb) in enumerate(items):
-            sc = Shortcut(n, parent=self.desk)
+        for i, (n, icon, cb) in enumerate(items):
+            sc = Shortcut(n, icon_name=icon, parent=self.desk)
             sc.clicked.connect(cb)
             self.desk.grid.addWidget(sc, i // 4, i % 4)
 
